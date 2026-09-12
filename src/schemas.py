@@ -13,10 +13,7 @@ from typing import Optional, Self
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
-# ---------------------------------------------------------------------------
 # Shared enumerations
-# ---------------------------------------------------------------------------
-
 
 class VerificationVerb(str, Enum):
     """Deponent and jurat verb; Part 6 and Part 9 must agree."""
@@ -81,9 +78,7 @@ class EvaluationSeverity(str, Enum):
     INFO = "info"
 
 
-# ---------------------------------------------------------------------------
 # 1. Case details
-# ---------------------------------------------------------------------------
 
 
 class PartyDescription(BaseModel):
@@ -146,9 +141,7 @@ class CaseDetails(BaseModel):
         return respondents
 
 
-# ---------------------------------------------------------------------------
 # 2. Deponent details
-# ---------------------------------------------------------------------------
 
 
 class DeponentDetails(BaseModel):
@@ -178,9 +171,7 @@ class DeponentDetails(BaseModel):
         return self
 
 
-# ---------------------------------------------------------------------------
 # 3. Reply points
-# ---------------------------------------------------------------------------
 
 
 class ExhibitReference(BaseModel):
@@ -226,9 +217,7 @@ class ReplyPoints(BaseModel):
         return points
 
 
-# ---------------------------------------------------------------------------
 # 4. Attestation
-# ---------------------------------------------------------------------------
 
 
 class AttestationDetails(BaseModel):
@@ -244,9 +233,7 @@ class AttestationDetails(BaseModel):
     verification_verb: VerificationVerb = VerificationVerb.SOLEMNLY_AFFIRM
 
 
-# ---------------------------------------------------------------------------
 # 5. Advocate details
-# ---------------------------------------------------------------------------
 
 
 class AdvocateDetails(BaseModel):
@@ -261,9 +248,7 @@ class AdvocateDetails(BaseModel):
     )
 
 
-# ---------------------------------------------------------------------------
 # 6. Template schema
-# ---------------------------------------------------------------------------
 
 
 class SectionSpec(BaseModel):
@@ -386,9 +371,7 @@ class AffidavitTemplateSchema(BaseModel):
         return sections
 
 
-# ---------------------------------------------------------------------------
 # 7. Evaluation result
-# ---------------------------------------------------------------------------
 
 
 class EvaluationIssue(BaseModel):
@@ -423,9 +406,7 @@ class EvaluationResult(BaseModel):
     evidence: dict[str, EvidenceReference] = Field(default_factory=dict)
 
 
-# ---------------------------------------------------------------------------
 # Composite input bundle
-# ---------------------------------------------------------------------------
 
 
 class AffidavitCaseInput(BaseModel):

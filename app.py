@@ -1,4 +1,3 @@
-"""Streamlit UI for the Legal Document Generation & Evaluation Agent."""
 
 import base64
 import sys
@@ -257,9 +256,8 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# ---------------------------------------------------------------------------
+
 # Helper: compact per-document validation status panel
-# ---------------------------------------------------------------------------
 
 def _render_validation_status(result: "DocumentValidationResult | ValidationSuite") -> None:
     """Render a compact validation status section for the uploaded Case Information PDF."""
@@ -460,10 +458,10 @@ with col_right.container(border=True):
                 details=[str(exc)],
             )
 
-        # ── Render compact validation status panel (user input only) ─────────
+        # Render compact validation status panel (user input only) 
         _render_validation_status(case_result)
 
-        # ── Step 2: If valid, run the generation pipeline ────────────────────
+        # Step 2: If valid, run the generation pipeline 
         if case_result.valid:
             try:
                 with st.status("Preparing draft affidavit...", expanded=True) as status:

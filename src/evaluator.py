@@ -109,9 +109,8 @@ class AffidavitEvaluator:
             evidence=content.evidence,
         )
 
-    # ------------------------------------------------------------------
     # A. Entity accuracy
-    # ------------------------------------------------------------------
+
     def _check_entity_accuracy(self, text: str) -> list[EvaluationIssue]:
         issues: list[EvaluationIssue] = []
         text_lower = text.lower()
@@ -131,9 +130,8 @@ class AffidavitEvaluator:
             )
         return issues
 
-    # ------------------------------------------------------------------
     # B. Completeness
-    # ------------------------------------------------------------------
+    
     def _check_completeness(self, content: MappedAffidavitContent, text: str) -> list[EvaluationIssue]:
         issues: list[EvaluationIssue] = []
 
@@ -164,9 +162,8 @@ class AffidavitEvaluator:
             )
         return issues
 
-    # ------------------------------------------------------------------
     # C. Structure
-    # ------------------------------------------------------------------
+
     def _check_structure(self, content: MappedAffidavitContent) -> list[EvaluationIssue]:
         issues: list[EvaluationIssue] = []
 
@@ -232,9 +229,8 @@ class AffidavitEvaluator:
 
         return issues
 
-    # ------------------------------------------------------------------
     # D. Consistency
-    # ------------------------------------------------------------------
+
     def _check_consistency(self, content: MappedAffidavitContent, text: str) -> list[EvaluationIssue]:
         issues: list[EvaluationIssue] = []
 
@@ -330,9 +326,8 @@ class AffidavitEvaluator:
 
         return issues
 
-    # ------------------------------------------------------------------
     # E. Template fidelity
-    # ------------------------------------------------------------------
+
     def _check_template_fidelity(self, content: MappedAffidavitContent, text: str) -> list[EvaluationIssue]:
         issues: list[EvaluationIssue] = []
 
@@ -411,9 +406,8 @@ class AffidavitEvaluator:
 
         return issues
 
-    # ------------------------------------------------------------------
     # F. Hallucination / forbidden sample data
-    # ------------------------------------------------------------------
+
     def _check_hallucination(self, text: str) -> list[EvaluationIssue]:
         issues: list[EvaluationIssue] = []
         text_lower = text.lower()

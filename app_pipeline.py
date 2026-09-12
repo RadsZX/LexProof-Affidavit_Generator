@@ -1,5 +1,3 @@
-"""End-to-end pipeline for Legal Document Generation & Evaluation."""
-
 from __future__ import annotations
 
 import sys

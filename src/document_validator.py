@@ -29,9 +29,8 @@ from src.schemas import AffidavitSection
 log = logging.getLogger(__name__)
 
 
-# ---------------------------------------------------------------------------
 # Result model
-# ---------------------------------------------------------------------------
+
 
 
 class DocumentValidationResult(BaseModel):
@@ -72,11 +71,9 @@ class ValidationSuite(BaseModel):
         )
 
 
-# ---------------------------------------------------------------------------
-# Minimum signal thresholds (tuned for robustness, not perfection)
-# ---------------------------------------------------------------------------
 
-# How many FORMAT_GUIDE_SECTION_HINTS must be present for a format-guide pass.
+# Minimum signal thresholds (tuned for robustness, not perfection)
+
 _FORMAT_GUIDE_MIN_HINTS = 7
 
 # Section markers used to recognise a finished affidavit sample document.
@@ -89,7 +86,7 @@ _SAMPLE_REQUIRED_SECTIONS: list[AffidavitSection] = [
     AffidavitSection.JURAT,
     AffidavitSection.VERIFICATION,
 ]
-_SAMPLE_MIN_SECTIONS = 5  # of the above list that must be detected
+_SAMPLE_MIN_SECTIONS = 5  
 
 # Labels from the Case Information PDF that indicate the document is correct.
 _CASE_INFO_REQUIRED_LABELS = [
@@ -103,9 +100,7 @@ _CASE_INFO_REQUIRED_LABELS = [
 _CASE_INFO_MIN_LABELS = 4
 
 
-# ---------------------------------------------------------------------------
 # Reference Path Resolution
-# ---------------------------------------------------------------------------
 
 
 def resolve_reference_paths(project_root: str | Path | None = None) -> tuple[Path, Path]:
@@ -159,9 +154,7 @@ def resolve_reference_paths(project_root: str | Path | None = None) -> tuple[Pat
     return format_guide_path, sample_path
 
 
-# ---------------------------------------------------------------------------
 # Public validator
-# ---------------------------------------------------------------------------
 
 
 class DocumentRoleValidator:
@@ -178,9 +171,7 @@ class DocumentRoleValidator:
         self._format_guide_path = Path(format_guide_path) if format_guide_path else resolved_guide
         self._sample_path = Path(sample_path) if sample_path else resolved_sample
 
-    # ------------------------------------------------------------------
     # Top-level entry point
-    # ------------------------------------------------------------------
 
     def validate_all(
         self,
@@ -276,9 +267,7 @@ class DocumentRoleValidator:
                 details=[str(exc)],
             )
 
-    # ------------------------------------------------------------------
     # 1. Format guide validator
-    # ------------------------------------------------------------------
 
     def _validate_format_guide(self, doc: ParsedDocument) -> DocumentValidationResult:
         """Check that the document describes affidavit format sections."""
@@ -306,9 +295,7 @@ class DocumentRoleValidator:
             details=[f"Missing section description: '{h}'" for h in missing],
         )
 
-    # ------------------------------------------------------------------
     # 2. Sample affidavit validator
-    # ------------------------------------------------------------------
 
     def _validate_sample_affidavit(self, doc: ParsedDocument) -> DocumentValidationResult:
         """Check that the document is a finished Affidavit in Reply."""
@@ -343,9 +330,7 @@ class DocumentRoleValidator:
             ],
         )
 
-    # ------------------------------------------------------------------
     # 3. Case information validator
-    # ------------------------------------------------------------------
 
     def _validate_case_information(
         self, doc: ParsedDocument, path: str | Path
@@ -372,7 +357,6 @@ class DocumentRoleValidator:
                 details=[f"Missing expected label: '{lbl}'" for lbl in missing],
             )
 
-        # --- Full extraction attempt (reuses CaseInformationExtractor) ---
         try:
             extractor = CaseInformationExtractor(parser=self._parser)
             extractor.extract(path)
@@ -400,10 +384,7 @@ class DocumentRoleValidator:
             )
 
 
-# ---------------------------------------------------------------------------
 # Pre-generation Deterministic Validation
-# ---------------------------------------------------------------------------
-
 
 class PreGenCheck(BaseModel):
     """Result of a single deterministic pre-generation check."""
@@ -690,11 +671,7 @@ class PreGenerationValidator:
             details=issues,
         )
 
-
-# ---------------------------------------------------------------------------
 # Helpers
-# ---------------------------------------------------------------------------
-
 
 def _humanize_extraction_error(raw: str) -> str:
     """Convert a CaseExtractionError message into a concise user-facing string."""
@@ -715,5 +692,4 @@ def _humanize_extraction_error(raw: str) -> str:
         return "One or more reply points are missing their supporting facts."
     if "no reply-move mapping" in raw_lower:
         return "A reply point heading could not be classified."
-    # Fallback: sanitised first line, no traceback
     return raw.split("\n")[0][:120]
