@@ -273,16 +273,21 @@ def _render_validation_status(result: "DocumentValidationResult | ValidationSuit
         body = '<div style="margin-top:2px; font-size:0.80rem; color:#4338ca;">Case Information PDF validated successfully.</div>'
     else:
         header_bg, header_border, header_color = "#fef2f2", "#fecaca", "#991b1b"
-        header_icon, header_text = "✗", "The input is incorrect. Please upload the correct Case Information PDF."
+        header_icon, header_text = "✗", ""
         icon_color, icon = "#991b1b", "✗"
+        display_details = [
+            detail
+            for detail in r.details
+            if "missing required information: court" not in detail.lower()
+        ]
         detail_lines = "".join(
             f'<li style="margin:2px 0; color:#64748b; font-size:0.80rem;">{d}</li>'
-            for d in r.details
+            for d in display_details
         )
         body = (
             f'<div style="margin-top:3px; padding-left:1.4rem;">'
             f'<div style="font-size:0.82rem; color:#7f1d1d; font-weight:500;">{r.message}</div>'
-            + (f'<ul style="margin:4px 0 0 0; padding-left:1rem;">{detail_lines}</ul>' if r.details else "")
+            + (f'<ul style="margin:4px 0 0 0; padding-left:1rem;">{detail_lines}</ul>' if display_details else "")
             + "</div>"
         )
 
