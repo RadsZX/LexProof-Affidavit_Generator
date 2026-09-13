@@ -72,17 +72,16 @@ python -m streamlit run app.py
 
 ## Project Workflow
 
-
 1. **Load Reference Documents** – The app loads the predefined affidavit format and sample affidavit.
-2.The user uploads the Case Information PDF.
-3.The app checks whether the uploaded PDF is the correct type of document.
-4.It extracts the case details and reply points from the PDF.
-5.It studies the reference affidavit format.
-6.It puts the extracted information into the correct affidavit sections.
-7.It checks the affidavit content before generating it.
-8.If everything is valid, it generates the Affidavit in Reply as a DOCX file.
-9.The generated affidavit is checked using predefined evaluation rules.
-10.Finally, the app creates an evaluation report showing the score, errors, and supporting evidence.
+2. **Upload Case Information** – The user uploads the Case Information PDF.
+3. **Validate Document** – The app checks whether the uploaded PDF is the correct document type.
+4. **Extract Information** – Case details and reply points are extracted from the PDF.
+5. **Analyze Template** – The reference affidavit format is analyzed to identify its structure.
+6. **Map Content** – The extracted case information is placed into the appropriate affidavit sections.
+7. **Validate Content** – The mapped content is checked for missing or invalid information.
+8. **Generate Affidavit** – If validation passes, the Affidavit in Reply is generated as a DOCX file.
+9. **Evaluate Document** – The generated affidavit is evaluated using deterministic validation checks.
+10. **Generate Evaluation Report** – A report containing scores, issues, and evidence mapping is generated.
 
 ## Evaluation
 
