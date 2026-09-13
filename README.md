@@ -72,7 +72,8 @@ python -m streamlit run app.py
 
 ## Project Workflow
 
-1.The app loads the reference format and sample affidavit.
+
+1. **Load Reference Documents** – The app loads the predefined affidavit format and sample affidavit.
 2.The user uploads the Case Information PDF.
 3.The app checks whether the uploaded PDF is the correct type of document.
 4.It extracts the case details and reply points from the PDF.
