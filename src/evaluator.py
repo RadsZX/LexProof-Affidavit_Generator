@@ -8,40 +8,12 @@ from typing import Optional
 
 from src.content_mapper import MappedAffidavitContent
 from src.schemas import (
+    AffidavitCaseInput,
     EvaluationIssue,
     EvaluationResult,
     EvaluationSeverity,
 )
 
-
-# Forbidden data from Document 02 (sample affidavit) that must NOT leak
-FORBIDDEN_SAMPLE_DATA = [
-    "Arjun Mehta",
-    "Rohan Deshpande",
-    "Writ Petition No. 3147 of 2026",
-    "3147",
-    "Mehta & Kulkarni",
-    "MEHTA & KULKARNI",
-    "CIVIL APPELLATE",
-    "12th March 2026",
-    "12 March 2026",
-]
-
-# Expected entities for this case
-EXPECTED_ENTITIES = {
-    "court": "IN THE HIGH COURT OF JUDICATURE AT BOMBAY",
-    "jurisdiction": "ORDINARY ORIGINAL CIVIL JURISDICTION",
-    "proceeding_type": "WRIT PETITION",
-    "case_number": "1847",
-    "year": "2026",
-    "petitioner": "Sunrise Housing Private Limited",
-    "respondent_1": "State of Maharashtra",
-    "respondent_2": "Mumbai Metropolitan Region Development Authority",
-    "deponent": "Arvind Rajan",
-    "designation": "Deputy Metropolitan Commissioner",
-    "organisation": "Mumbai Metropolitan Region Development Authority",
-    "answering_respondent": "Respondent No. 2",
-}
 
 REQUIRED_SECTIONS = [
     "forum",
@@ -63,14 +35,16 @@ class AffidavitEvaluator:
     def evaluate(
         self,
         content: MappedAffidavitContent,
+        case_input: AffidavitCaseInput,
         docx_text: str | None = None,
+        reference_text: str | None = None,
     ) -> EvaluationResult:
-        """Evaluate the mapped content and optionally the rendered DOCX text."""
+        """Evaluate generated content against the extracted case information."""
         issues: list[EvaluationIssue] = []
         full_text = content.all_text()
 
         # A. Entity accuracy
-        issues.extend(self._check_entity_accuracy(full_text))
+        issues.extend(self._check_entity_accuracy(full_text, case_input))
 
         # B. Completeness
         issues.extend(self._check_completeness(content, full_text))
@@ -79,13 +53,13 @@ class AffidavitEvaluator:
         issues.extend(self._check_structure(content))
 
         # D. Consistency
-        issues.extend(self._check_consistency(content, full_text))
+        issues.extend(self._check_consistency(content, case_input, full_text))
 
         # E. Template fidelity
         issues.extend(self._check_template_fidelity(content, full_text))
 
         # F. Hallucination / forbidden sample data
-        issues.extend(self._check_hallucination(full_text))
+        issues.extend(self._check_hallucination(full_text, case_input, reference_text))
 
         # Calculate overall score
         total = len(issues)
@@ -111,11 +85,34 @@ class AffidavitEvaluator:
 
     # A. Entity accuracy
 
-    def _check_entity_accuracy(self, text: str) -> list[EvaluationIssue]:
+    def _check_entity_accuracy(
+        self, text: str, case_input: AffidavitCaseInput
+    ) -> list[EvaluationIssue]:
         issues: list[EvaluationIssue] = []
         text_lower = text.lower()
 
-        for key, expected in EXPECTED_ENTITIES.items():
+        expected_entities = {
+            "court": case_input.case.court,
+            "jurisdiction": case_input.case.jurisdiction_type,
+            "proceeding_type": case_input.case.proceeding_type,
+            "case_number": case_input.case.case_number,
+            "year": str(case_input.case.year),
+            "petitioner": case_input.case.petitioner.name,
+            **{
+                f"respondent_{respondent.respondent_number}": respondent.name
+                for respondent in case_input.case.respondents
+            },
+            "deponent": case_input.deponent.name,
+            "designation": case_input.deponent.designation,
+            "organisation": case_input.deponent.organisation,
+            "answering_respondent": _respondent_label(
+                case_input.case.answering_respondent_number
+            ),
+        }
+
+        for key, expected in expected_entities.items():
+            if not expected:
+                continue
             found = expected.lower() in text_lower
             issues.append(
                 EvaluationIssue(
@@ -231,7 +228,12 @@ class AffidavitEvaluator:
 
     # D. Consistency
 
-    def _check_consistency(self, content: MappedAffidavitContent, text: str) -> list[EvaluationIssue]:
+    def _check_consistency(
+        self,
+        content: MappedAffidavitContent,
+        case_input: AffidavitCaseInput,
+        text: str,
+    ) -> list[EvaluationIssue]:
         issues: list[EvaluationIssue] = []
 
         # Jurat says "Solemnly affirmed"
@@ -276,31 +278,31 @@ class AffidavitEvaluator:
             )
         )
 
-        # Mumbai appears in jurat and verification
-        mumbai_jurat = "Mumbai" in content.jurat.text or "Mumbai" in content.jurat.place
-        mumbai_verif = "Mumbai" in content.verification.text or "Mumbai" in content.verification.place
+        # The extracted attestation place appears in both repeated blocks.
+        place = case_input.attestation.place
+        place_jurat = place.casefold() in content.jurat.text.casefold() or place.casefold() in content.jurat.place.casefold()
+        place_verif = place.casefold() in content.verification.text.casefold() or place.casefold() in content.verification.place.casefold()
         issues.append(
             EvaluationIssue(
                 dimension="consistency",
-                score=1.0 if (mumbai_jurat and mumbai_verif) else 0.0,
-                issue=None if (mumbai_jurat and mumbai_verif) else "Mumbai missing from jurat or verification",
-                severity=EvaluationSeverity.MAJOR if not (mumbai_jurat and mumbai_verif) else EvaluationSeverity.INFO,
-                expected_value="Mumbai in both jurat and verification",
-                actual_value=f"jurat={'found' if mumbai_jurat else 'missing'}, verification={'found' if mumbai_verif else 'missing'}",
+                score=1.0 if (place_jurat and place_verif) else 0.0,
+                issue=None if (place_jurat and place_verif) else f"Attestation place '{place}' missing from jurat or verification",
+                severity=EvaluationSeverity.MAJOR if not (place_jurat and place_verif) else EvaluationSeverity.INFO,
+                expected_value=f"{place} in both jurat and verification",
+                actual_value=f"jurat={'found' if place_jurat else 'missing'}, verification={'found' if place_verif else 'missing'}",
                 explanation="Place consistency check",
             )
         )
 
-        # 5 September 2026 appears in jurat and verification
-        date_str = "5 September 2026"
-        # Check date appears in either text or ordinal form
-        date_in_jurat = date_str in content.jurat.date or "September 2026" in content.jurat.text
-        date_in_verif = date_str in content.verification.date or "September 2026" in content.verification.text
+        # The extracted attestation date appears in both repeated blocks.
+        date_str = _date_prose(case_input.attestation.date)
+        date_in_jurat = date_str.casefold() in content.jurat.date.casefold()
+        date_in_verif = date_str.casefold() in content.verification.date.casefold()
         issues.append(
             EvaluationIssue(
                 dimension="consistency",
                 score=1.0 if (date_in_jurat and date_in_verif) else 0.0,
-                issue=None if (date_in_jurat and date_in_verif) else "Date '5 September 2026' missing from jurat or verification",
+                issue=None if (date_in_jurat and date_in_verif) else f"Date '{date_str}' missing from jurat or verification",
                 severity=EvaluationSeverity.MAJOR if not (date_in_jurat and date_in_verif) else EvaluationSeverity.INFO,
                 expected_value=date_str,
                 actual_value=f"jurat='{content.jurat.date}', verification='{content.verification.date}'",
@@ -308,18 +310,18 @@ class AffidavitEvaluator:
             )
         )
 
-        # Respondent No.2 is consistent
-        resp2_text = "Respondent No. 2"
-        resp2_in_title = resp2_text in content.affidavit_title or "RESPONDENT NO. 2" in content.affidavit_title.upper()
-        resp2_in_deponent = resp2_text in content.deponent_clause.text
+        # The extracted answering respondent is consistent across sections.
+        respondent_text = _respondent_label(case_input.case.answering_respondent_number)
+        respondent_in_title = respondent_text.casefold() in content.affidavit_title.casefold()
+        respondent_in_deponent = respondent_text.casefold() in content.deponent_clause.text.casefold()
         issues.append(
             EvaluationIssue(
                 dimension="consistency",
-                score=1.0 if (resp2_in_title and resp2_in_deponent) else 0.0,
-                issue=None if (resp2_in_title and resp2_in_deponent) else "Respondent No.2 inconsistent across sections",
-                severity=EvaluationSeverity.MAJOR if not (resp2_in_title and resp2_in_deponent) else EvaluationSeverity.INFO,
-                expected_value=resp2_text,
-                actual_value=f"title={'found' if resp2_in_title else 'missing'}, deponent={'found' if resp2_in_deponent else 'missing'}",
+                score=1.0 if (respondent_in_title and respondent_in_deponent) else 0.0,
+                issue=None if (respondent_in_title and respondent_in_deponent) else f"{respondent_text} inconsistent across sections",
+                severity=EvaluationSeverity.MAJOR if not (respondent_in_title and respondent_in_deponent) else EvaluationSeverity.INFO,
+                expected_value=respondent_text,
+                actual_value=f"title={'found' if respondent_in_title else 'missing'}, deponent={'found' if respondent_in_deponent else 'missing'}",
                 explanation="Respondent consistency check",
             )
         )
@@ -408,11 +410,29 @@ class AffidavitEvaluator:
 
     # F. Hallucination / forbidden sample data
 
-    def _check_hallucination(self, text: str) -> list[EvaluationIssue]:
+    def _check_hallucination(
+        self,
+        text: str,
+        case_input: AffidavitCaseInput,
+        reference_text: str | None,
+    ) -> list[EvaluationIssue]:
         issues: list[EvaluationIssue] = []
         text_lower = text.lower()
 
-        for forbidden in FORBIDDEN_SAMPLE_DATA:
+        forbidden_values = _reference_case_values(reference_text, case_input)
+        if not forbidden_values:
+            return [
+                EvaluationIssue(
+                    dimension="hallucination",
+                    score=1.0,
+                    severity=EvaluationSeverity.INFO,
+                    expected_value="reference-specific values unavailable",
+                    actual_value="not checked",
+                    explanation="Reference sample leakage check",
+                )
+            ]
+
+        for forbidden in forbidden_values:
             leaked = forbidden.lower() in text_lower
             issues.append(
                 EvaluationIssue(
@@ -430,10 +450,74 @@ class AffidavitEvaluator:
 
 def evaluate_affidavit(
     content: MappedAffidavitContent,
+    case_input: AffidavitCaseInput,
     docx_text: str | None = None,
+    reference_text: str | None = None,
 ) -> EvaluationResult:
     """Convenience wrapper around AffidavitEvaluator.evaluate."""
-    return AffidavitEvaluator().evaluate(content, docx_text=docx_text)
+    return AffidavitEvaluator().evaluate(
+        content,
+        case_input,
+        docx_text=docx_text,
+        reference_text=reference_text,
+    )
+
+
+def _respondent_label(number: int) -> str:
+    return f"Respondent No. {number}"
+
+
+def _date_prose(value: object) -> str:
+    if hasattr(value, "day") and hasattr(value, "month") and hasattr(value, "year"):
+        import calendar
+
+        return f"{value.day} {calendar.month_name[value.month]} {value.year}"
+    return str(value).strip()
+
+
+def _reference_case_values(
+    reference_text: str | None,
+    case_input: AffidavitCaseInput,
+) -> list[str]:
+    """Extract case-like values from the reference document, excluding this case."""
+    if not reference_text:
+        return []
+
+    candidates: list[str] = []
+    patterns = [
+        r"(?im)^\s*([A-Z][A-Za-z .&'-]+),\s*(?:Age|residing)",
+        r"(?i)\bI,\s*([^,\n]+),",
+        r"(?i)\b(?:WRIT PETITION|CIVIL APPEAL)\s+NO\.\s*([^\s]+)\s+OF\s+(\d{4})",
+        r"(?i)\bdated\s+([0-9]{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+\s+\d{4})",
+        r"(?im)^\s*([A-Z][A-Z &]+)\s*$\n\s*Advocates for",
+    ]
+    for pattern in patterns:
+        for match in re.finditer(pattern, reference_text):
+            candidates.append(" ".join(group for group in match.groups() if group))
+
+    current_values = {
+        case_input.case.court,
+        case_input.case.jurisdiction_type,
+        case_input.case.case_number,
+        str(case_input.case.year),
+        case_input.case.petitioner.name,
+        *(respondent.name for respondent in case_input.case.respondents),
+        case_input.deponent.name,
+        case_input.deponent.designation or "",
+        case_input.deponent.organisation or "",
+        case_input.attestation.place,
+        _date_prose(case_input.attestation.date),
+        case_input.advocate.firm if case_input.advocate else "",
+    }
+    current_lower = {value.casefold() for value in current_values if value}
+    unique: list[str] = []
+    for candidate in candidates:
+        candidate = candidate.strip()
+        if len(candidate) < 3 or candidate.casefold() in current_lower:
+            continue
+        if candidate.casefold() not in {item.casefold() for item in unique}:
+            unique.append(candidate)
+    return unique
 
 
 def write_evaluation_report(

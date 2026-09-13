@@ -79,7 +79,7 @@ def _format_report_as_text(markdown_report: str) -> str:
 
 # 1. Page Configuration
 st.set_page_config(
-    page_title="LexProof | Affidavit Review",
+    page_title="LexProof | Affidavit Generator & Evaluator",
     layout="wide",
 )
 
@@ -97,18 +97,21 @@ st.markdown(
         font-family: 'Source Sans 3', -apple-system, BlinkMacSystemFont, sans-serif !important;
     }
     [data-testid="stAppViewContainer"] {
-        background: linear-gradient(135deg, #fbf8ff 0%, #f3ecff 52%, #eae0fa 100%);
+        background: linear-gradient(135deg, #f8f2ff 0%, #eee2ff 52%, #e4d4fb 100%);
         background-attachment: fixed;
     }
     [data-testid="stHeader"] {
         background: transparent;
     }
     div[data-testid="stVerticalBlockBorderWrapper"] {
-        background: #f7f9fc;
-        border: 1px solid #dbe3ee;
+        background: linear-gradient(145deg, #fffaff 0%, #f5ecff 100%);
+        border: 2px solid #a855f7 !important;
         border-radius: 12px;
         padding: 0.85rem 1rem;
-        box-shadow: 0 4px 14px rgba(15,23,42,0.04);
+        box-shadow:
+            0 0 0 1px rgba(124, 58, 237, 0.28),
+            0 0 14px rgba(192, 132, 252, 0.32),
+            0 6px 20px rgba(109, 40, 217, 0.16);
         overflow: visible;
         margin-bottom: 0.75rem;
     }
@@ -245,7 +248,7 @@ st.markdown(
         <div style="display:flex; align-items:center; justify-content:center; gap:0.7rem;">
             <img src="data:image/png;base64,{icon_data}" alt="LexProof logo" style="width:52px; height:52px; object-fit:contain;">
             <h1 style="font-size: 1.75rem; font-weight: 700; margin: 0; letter-spacing: -0.02em; background:linear-gradient(135deg,#4c1d95 0%,#a855f7 55%,#6d28d9 100%); -webkit-background-clip:text; background-clip:text; color:transparent;">
-               LexProof
+               LexProof Affidavit
             </h1>
         </div>
         <p style="font-size: 0.95rem; color: #64748b; margin: 0;">
@@ -365,14 +368,15 @@ with col_left.container(border=True):
     #         "Please verify reference files exist in the project repository."
     #     )
 
+    uploader_key = st.session_state.get("case_file_uploader_key", 0)
     case_file = st.file_uploader(
         "Upload Case Information PDF",
         type=["pdf"],
         help="Upload the case-specific information and reply points PDF.",
-        key="case_file",
+        key=f"case_file_{uploader_key}",
     )
     if case_file and st.button("Remove selected PDF", use_container_width=True):
-        st.session_state.pop("case_file", None)
+        st.session_state["case_file_uploader_key"] = uploader_key + 1
         st.rerun()
 
     can_generate = (case_file is not None) and references_ready
@@ -508,7 +512,11 @@ with col_right.container(border=True):
 
                         st.write("✓ Evaluate document")
                         evaluator = AffidavitEvaluator()
-                        result = evaluator.evaluate(mapped)
+                        result = evaluator.evaluate(
+                            mapped,
+                            case_input,
+                            reference_text=parser.parse(SAMPLE_PATH).full_text,
+                        )
                         write_evaluation_report(result, EVALUATION_REPORT)
 
                         status.update(
@@ -636,10 +644,10 @@ with col_right.container(border=True):
                     to run the pipeline.
                 </div>
                 <div style="display:flex; justify-content:center; gap:0.5rem; flex-wrap:wrap;">
-                    <span style="background:#e0e7ff;color:#3730a3;padding:4px 12px;border-radius:20px;font-size:0.78rem;font-weight:600;">✦ Extract</span>
-                    <span style="background:#e0e7ff;color:#3730a3;padding:4px 12px;border-radius:20px;font-size:0.78rem;font-weight:600;">✦ Validate</span>
-                    <span style="background:#e0e7ff;color:#3730a3;padding:4px 12px;border-radius:20px;font-size:0.78rem;font-weight:600;">✦ Generate</span>
-                    <span style="background:#e0e7ff;color:#3730a3;padding:4px 12px;border-radius:20px;font-size:0.78rem;font-weight:600;">✦ Evaluate</span>
+                    <span style="background:#e0e7ff;padding:4px 12px;border-radius:20px;font-size:0.78rem;font-weight:600;"><span style="background:linear-gradient(135deg,#4c1d95 0%,#a855f7 55%,#6d28d9 100%);-webkit-background-clip:text;background-clip:text;color:transparent;">✦ Extract</span></span>
+                    <span style="background:#e0e7ff;padding:4px 12px;border-radius:20px;font-size:0.78rem;font-weight:600;"><span style="background:linear-gradient(135deg,#4c1d95 0%,#a855f7 55%,#6d28d9 100%);-webkit-background-clip:text;background-clip:text;color:transparent;">✦ Validate</span></span>
+                    <span style="background:#e0e7ff;padding:4px 12px;border-radius:20px;font-size:0.78rem;font-weight:600;"><span style="background:linear-gradient(135deg,#4c1d95 0%,#a855f7 55%,#6d28d9 100%);-webkit-background-clip:text;background-clip:text;color:transparent;">✦ Generate</span></span>
+                    <span style="background:#e0e7ff;padding:4px 12px;border-radius:20px;font-size:0.78rem;font-weight:600;"><span style="background:linear-gradient(135deg,#4c1d95 0%,#a855f7 55%,#6d28d9 100%);-webkit-background-clip:text;background-clip:text;color:transparent;">✦ Evaluate</span></span>
                 </div>
             </div>
             """,

@@ -15,13 +15,13 @@ from tests.conftest import CASE_INFORMATION_PDF
 def _mapped():
     case_input = CaseInformationExtractor().extract(CASE_INFORMATION_PDF)
     template = default_bombay_hc_affidavit_in_reply_template()
-    return AffidavitContentMapper().map(case_input, template=template)
+    return case_input, AffidavitContentMapper().map(case_input, template=template)
 
 
 # --- DOCX Generator tests ---
 
 def test_docx_generates_valid_file(tmp_path):
-    mapped = _mapped()
+    _, mapped = _mapped()
     output = tmp_path / "test_affidavit.docx"
     result = AffidavitDocxGenerator().generate(mapped, output)
 
@@ -31,7 +31,7 @@ def test_docx_generates_valid_file(tmp_path):
 
 
 def test_docx_creates_output_directory(tmp_path):
-    mapped = _mapped()
+    _, mapped = _mapped()
     output = tmp_path / "nested" / "dir" / "test.docx"
     result = AffidavitDocxGenerator().generate(mapped, output)
 
@@ -41,8 +41,8 @@ def test_docx_creates_output_directory(tmp_path):
 # --- Evaluator tests ---
 
 def test_evaluator_returns_structured_result():
-    mapped = _mapped()
-    result = AffidavitEvaluator().evaluate(mapped)
+    case_input, mapped = _mapped()
+    result = AffidavitEvaluator().evaluate(mapped, case_input)
 
     assert result.overall_score is not None
     assert 0.0 <= result.overall_score <= 1.0
@@ -51,8 +51,8 @@ def test_evaluator_returns_structured_result():
 
 
 def test_evaluator_passes_all_checks():
-    mapped = _mapped()
-    result = AffidavitEvaluator().evaluate(mapped)
+    case_input, mapped = _mapped()
+    result = AffidavitEvaluator().evaluate(mapped, case_input)
 
     assert result.overall_score == 1.0
     assert result.passed is True
@@ -62,8 +62,8 @@ def test_evaluator_passes_all_checks():
 
 
 def test_evaluator_checks_all_six_dimensions():
-    mapped = _mapped()
-    result = AffidavitEvaluator().evaluate(mapped)
+    case_input, mapped = _mapped()
+    result = AffidavitEvaluator().evaluate(mapped, case_input)
 
     dimensions = set(i.dimension for i in result.issues)
     expected = {"entity_accuracy", "completeness", "structure", "consistency", "template_fidelity", "hallucination"}
@@ -71,16 +71,16 @@ def test_evaluator_checks_all_six_dimensions():
 
 
 def test_evaluator_has_at_least_50_checks():
-    mapped = _mapped()
-    result = AffidavitEvaluator().evaluate(mapped)
+    case_input, mapped = _mapped()
+    result = AffidavitEvaluator().evaluate(mapped, case_input)
     assert len(result.issues) >= 40  # We have 50 checks
 
 
 # --- Evaluation report tests ---
 
 def test_evaluation_report_writes_markdown(tmp_path):
-    mapped = _mapped()
-    result = AffidavitEvaluator().evaluate(mapped)
+    case_input, mapped = _mapped()
+    result = AffidavitEvaluator().evaluate(mapped, case_input)
     report_path = tmp_path / "report.md"
 
     write_evaluation_report(result, report_path)
@@ -112,10 +112,37 @@ def test_end_to_end_pipeline_produces_outputs(tmp_path):
     AffidavitDocxGenerator().generate(mapped, docx_path)
     assert docx_path.exists()
 
-    result = AffidavitEvaluator().evaluate(mapped)
+    result = AffidavitEvaluator().evaluate(mapped, case_input)
     assert result.overall_score == 1.0
     assert result.passed is True
 
     report_path = tmp_path / "report.md"
     write_evaluation_report(result, report_path)
     assert report_path.exists()
+
+
+def test_evaluator_uses_supplied_case_information():
+    case_input, mapped = _mapped()
+    case_input.case.case_number = "1875"
+    case_input.attestation.place = "Pune"
+    case_input.attestation.date = "12 October 2027"
+    case_input.case.answering_respondent_number = 3
+
+    result = AffidavitEvaluator().evaluate(mapped, case_input)
+
+    case_number_issues = [
+        issue for issue in result.issues
+        if issue.explanation == "Check for entity: case_number"
+    ]
+    assert len(case_number_issues) == 1
+    assert case_number_issues[0].expected_value == "1875"
+    assert case_number_issues[0].score == 0.0
+    consistency_expectations = {
+        issue.expected_value
+        for issue in result.issues
+        if issue.dimension == "consistency"
+    }
+    assert "Pune in both jurat and verification" in consistency_expectations
+    assert "12 October 2027" in consistency_expectations
+    assert "Respondent No. 3" in consistency_expectations
+    assert all(issue.expected_value != "1847" for issue in result.issues)

@@ -110,7 +110,11 @@ def run_pipeline(case_info_pdf: Path | str = CASE_INFORMATION_PDF) -> dict:
     print(f"  [OK] Generated: {docx_path}")
 
     evaluator = AffidavitEvaluator()
-    result = evaluator.evaluate(mapped)
+    result = evaluator.evaluate(
+        mapped,
+        case_input,
+        reference_text=reference_doc.full_text,
+    )
     report_path = write_evaluation_report(result, EVALUATION_REPORT)
     print(f"  [OK] Overall score: {result.overall_score:.2%}")
     print(f"  [OK] Passed: {'YES' if result.passed else 'NO'}")
